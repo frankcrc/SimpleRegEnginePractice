@@ -10,6 +10,8 @@
 #define SIMPLEREGENGINE_H
 
 #include <unordered_map>
+#include <set>
+#include <vector>
 #include <memory>
 #include <string>
 
@@ -38,6 +40,8 @@ using Occurs = std::pair<size_t, size_t>;
 class State
 {
 public:
+	typedef std::unordered_multimap<char, State*> ActionMap;
+
 	State();
 
 	State(const std::string &id);
@@ -47,6 +51,7 @@ public:
 
 	void addAction(char ch, State *pAction);
 	State* moveNext(char ch);
+	std::pair<ActionMap::iterator, ActionMap::iterator> getNextStates(char ch);
 
 	void setIsFinalState(bool yes) { m_isFinalState = yes; }
 	bool isFinalState() const { return m_isFinalState; }
@@ -59,7 +64,7 @@ public:
 
 private:
 	std::string m_id;
-	std::unordered_map<char, State*> m_actionsMap;
+	std::unordered_multimap<char, State*> m_actionsMap;
 	bool m_isFinalState;
 	Occurs m_occurs;
 };
@@ -84,6 +89,14 @@ public:
 	bool validateString(const std::string& str);
 
 private:
+	bool validateStringImpl(State *pCurState, const std::string &str, size_t i, bool isFirstState,
+		std::unordered_map<State *, size_t>  &stateOccursMapping);
+	/*!
+		递归解析，可处理Group
+	 */
+	static bool constructDFAImpl(std::set<State *> prevLevelStates, bool isStateState,
+		const std::string &regExp, size_t &i,
+		std::set<State *> *pNextLevelEndStates, std::vector<std::shared_ptr<State>> &states);
 	/*!
 	解析最大最小次数
 
@@ -93,13 +106,14 @@ private:
 	/*!
 	获取下一个字符，包含转义处理
 	*/
-	static bool getNextCh(const std::string& str, size_t &i, char &nextChar);
+	static bool getNextCh(const std::string& str, size_t &i, char &nextChar, bool &escaped);
 
 	SimpleRegExpEngine();
 
 	std::shared_ptr<State> m_startState;
 	std::vector<std::shared_ptr<State>> m_states;
 	bool m_needCheckFromFirstChar;
+	bool m_endInLastChar;
 };
 
 #endif	//SIMPLEREGENGINE_H

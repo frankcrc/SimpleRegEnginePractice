@@ -61,6 +61,26 @@ int main()
 	EngineTest::test("^a{1,3}bb", "aaabb", true);
 	EngineTest::test("^a{1,3}bb", "aaaabb", false);
 
+	EngineTest::test("^a{1,3}bb$", "abb", true);
+	EngineTest::test("^a{1,3}bb$", "abbb", false);
+
+	EngineTest::test("abcd|12345", "abcd", true);
+	EngineTest::test("abcd|12345", "12345", true);
+	EngineTest::test("abcd|12345", "ab12345", true);
+
+	EngineTest::test("abcd|ab12345", "abcd", true);
+	EngineTest::test("abcd|ab12345", "ab12345", true);
+
+	EngineTest::test("abc(1234|defg)xsd", "abc1234xsd", true);
+	EngineTest::test("abc(1234|defg)xsd", "abcdefgxsd", true);
+
+	EngineTest::test("abcf?(1234?|defg?)xsd", "abc1234xsd", true);
+	EngineTest::test("abcf?(1234?|defg?)xsd", "abc123xsd", true);
+	EngineTest::test("abcf?(1234?|defg?)xsd", "abcf123xsd", true);
+	EngineTest::test("abcf?(1234?|defg?)xsd", "abcdefxsd", true);
+	EngineTest::test("abcf?(1234?|defg?)xsd", "abcdefgxsd", true);
+	EngineTest::test("abcf?(1234?|defg?)xsd", "abefgxsd", false);
+
 	system("pause");
 
 	return 0;
