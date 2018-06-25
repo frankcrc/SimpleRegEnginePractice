@@ -42,14 +42,13 @@ class State
 public:
 	typedef std::unordered_multimap<char, State*> ActionMap;
 
-	State();
-
-	State(const std::string &id);
+	State(State *pParent);
 
 	~State()
 	{}
 
-	void addAction(char ch, State *pAction);
+	void addAction(char ch, State *pNextState);
+	void addGroupAction(State* pGroupState);
 	State* moveNext(char ch);
 	std::pair<ActionMap::iterator, ActionMap::iterator> getNextStates(char ch);
 
@@ -61,11 +60,18 @@ public:
 	size_t getMinOccurs() const { return m_occurs.first; }
 	void setMaxOccurs(size_t value) { m_occurs.second = value; }
 	size_t getMaxOccurs() const { return m_occurs.second; }
+	void setParent(State *pParent) { m_pParent = pParent; }
+	State *getParent() const { return m_pParent; }
+	void setIsGroupState(bool yes) { m_isGroupState = yes; }
+	bool getIsGroupState() const { return m_isGroupState; }
 
 private:
 	std::string m_id;
 	std::unordered_multimap<char, State*> m_actionsMap;
+	//如果不为null，则指向group结点
+	State *m_pParent;
 	bool m_isFinalState;
+	bool m_isGroupState;
 	Occurs m_occurs;
 };
 
@@ -90,11 +96,12 @@ public:
 
 private:
 	bool validateStringImpl(State *pCurState, const std::string &str, size_t i, bool isFirstState,
-		std::unordered_map<State *, size_t>  &stateOccursMapping);
+		size_t parentCurOccurs,
+		std::unordered_map<State *, size_t> &stateOccursMappingStack);
 	/*!
 		递归解析，可处理Group
 	 */
-	static bool constructDFAImpl(std::set<State *> prevLevelStates, bool isStateState,
+	static bool constructDFAImpl(const std::set<State *> prevLevelStates, bool isStateState, State *pGroup,
 		const std::string &regExp, size_t &i,
 		std::set<State *> *pNextLevelEndStates, std::vector<std::shared_ptr<State>> &states);
 	/*!

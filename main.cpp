@@ -73,6 +73,8 @@ int main()
 
 	EngineTest::test("abc(1234|defg)xsd", "abc1234xsd", true);
 	EngineTest::test("abc(1234|defg)xsd", "abcdefgxsd", true);
+	EngineTest::test("abc(1234|defg)xsd", "abcxsd", false);
+	EngineTest::test("abc(1234|defg)?xsd", "abcxsd", true);
 
 	EngineTest::test("abcf?(1234?|defg?)xsd", "abc1234xsd", true);
 	EngineTest::test("abcf?(1234?|defg?)xsd", "abc123xsd", true);
@@ -80,6 +82,17 @@ int main()
 	EngineTest::test("abcf?(1234?|defg?)xsd", "abcdefxsd", true);
 	EngineTest::test("abcf?(1234?|defg?)xsd", "abcdefgxsd", true);
 	EngineTest::test("abcf?(1234?|defg?)xsd", "abefgxsd", false);
+
+	EngineTest::test("abc(1234|defg)+xsd", "abc1234xsd", true);
+	EngineTest::test("abc(1234|defg)+xsd", "abcxsd", false);
+	EngineTest::test("abc(1234|defg)+xsd", "abc1234defg12341234xsd", true);
+
+	EngineTest::test("abc(1234|defg)*xsd", "abc1234defg12341234xsd", true);
+	EngineTest::test("abc(1234|defg)*xsd", "abcxsd", true);
+
+	EngineTest::test("abc(1234|defg){2,2}xsd", "abcdefgdefgxsd", true);
+	EngineTest::test("abc(1234|defg){2,2}xsd", "abc1234defgxsd", true);
+	EngineTest::test("abc(1234|defg){2,2}xsd", "abcdefgdefg1234xsd", false);
 
 	system("pause");
 

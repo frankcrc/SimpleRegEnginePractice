@@ -14,24 +14,24 @@
 
 using namespace std;
 
-State::State()
+State::State(State *pParent)
 	: m_isFinalState(false)
+	, m_pParent(pParent)
+	, m_isGroupState(false)
 {
 	m_occurs.first = 1;
 	m_occurs.second = 1;
 }
 
-State::State(const string &id)
-	: m_id(id)
-	, m_isFinalState(false)
+void State::addAction(char ch, State *pNextState)
 {
-	m_occurs.first = 1;
-	m_occurs.second = 1;
+	m_actionsMap.insert(make_pair(ch, pNextState));
 }
 
-void State::addAction(char ch, State *pAction)
+void State::addGroupAction(State* pGroupState)
 {
-	m_actionsMap.insert(make_pair(ch, pAction));
+	for (auto iter = pGroupState->m_actionsMap.begin(); iter != pGroupState->m_actionsMap.end(); ++ iter)
+		m_actionsMap.insert(make_pair(iter->first, pGroupState));
 }
 
 State* State::moveNext(char ch)
@@ -55,7 +55,7 @@ SimpleRegExpEngine* SimpleRegExpEngine::constructDFA(const string& regExp)
 	bool needCheckFromFirstChar = false;
 	bool endInLastChar = false;
 
-	pStartState.reset(new State("StartState"));
+	pStartState.reset(new State(nullptr));
 	states.push_back(pStartState);
 	set<State*> previousStates;
 	previousStates.insert(pStartState.get());
@@ -76,7 +76,7 @@ SimpleRegExpEngine* SimpleRegExpEngine::constructDFA(const string& regExp)
 		}
 	}
 
-	if (!constructDFAImpl(previousStates, true, adjustedRegExp, i, nullptr, states))
+	if (!constructDFAImpl(previousStates, true, nullptr, adjustedRegExp, i, nullptr, states))
 		return false;
 
 	SimpleRegExpEngine *pInstance = new SimpleRegExpEngine();
@@ -95,20 +95,22 @@ bool SimpleRegExpEngine::validateString(const string& str)
 {
 	for (size_t i = 0; i < str.length() && (!m_needCheckFromFirstChar || 0 == i); ++i)
 	{
-		unordered_map<State *, size_t> stateOccursMapping;
-		if (validateStringImpl(m_startState.get(), str, i, true, stateOccursMapping))
+		unordered_map<State *, size_t> stateOccursMappingStack;
+		if (validateStringImpl(m_startState.get(), str, i, true, 1, stateOccursMappingStack))
 			return true;
 	}
 
 	return false;
 }
 
-bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const std::string &str, size_t i, bool isFirstState,
-	std::unordered_map<State *, size_t> &stateOccursMapping)
+bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str, size_t i, bool isFirstState,
+	size_t parentOccurs,
+	unordered_map<State *, size_t> &stateOccursMapping)
 {
-	//未达到最小次数
-	if (!isFirstState && str[i] != str[i - 1]
-		&& stateOccursMapping[pCurState] < pCurState->getMinOccurs())
+	if (isFirstState)
+		++ stateOccursMapping[pCurState];
+
+	if (pCurState->getIsGroupState() && parentOccurs > pCurState->getMaxOccurs())
 		return false;
 
 	pair<State::ActionMap::iterator, State::ActionMap::iterator> nextActions = pCurState->getNextStates(str[i]);
@@ -119,23 +121,70 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const std::string 
 	for (; nextActions.first != nextActions.second; ++ nextActions.first)
 	{
 		State *pNextState = nextActions.first->second;
+		//未达到最小次数
+		if (pCurState->getIsGroupState())
+		{
+			if (parentOccurs < pCurState->getMinOccurs() && pNextState->getParent() != pCurState)
+				continue;
+		}
+		else if (stateOccursMapping[pCurState] < pCurState->getMinOccurs()
+			&& pCurState != pNextState)
+			continue;
+
 		++ stateOccursMapping[pNextState];
 
 		//超过最大次数
 		if (stateOccursMapping[pNextState] > pNextState->getMaxOccurs())
-			break;
+		{
+			-- stateOccursMapping[pNextState];
+			continue;
+		}
 
 		//到达终态
 		if (pNextState->isFinalState()
 			&& stateOccursMapping[pNextState] >= pNextState->getMinOccurs())
-			return m_endInLastChar ? (i == str.length() - 1) : true;
+		{
+			if (auto *pParent = pNextState->getParent())
+			{
+				//Group终结结点
+				if (pParent->isFinalState()
+					&& parentOccurs >= pParent->getMinOccurs()
+					&& (!m_endInLastChar || i == str.length() - 1))
+					return true;
+
+				if (i == str.length() - 1)
+				{
+					-- stateOccursMapping[pNextState];
+					continue;
+				}
+
+				//从Group开始下一轮匹配
+				{
+					unordered_map<State *, size_t> newStateOccursMapping;
+					if (validateStringImpl(pParent, str, i + 1, false, parentOccurs + 1, newStateOccursMapping))
+						return true;
+				}
+			}
+			else if(!m_endInLastChar || i == str.length() - 1)
+				//Reg终结结点
+				return true;
+		}
 		
 		//字符串遍历完成，但状态仍未到达终态，则验证失败
 		if (i == str.length() - 1)
-			return false;
+		{
+			-- stateOccursMapping[pNextState];
+			continue;
+		}
 
 		//进入下一状态
-		if (validateStringImpl(pNextState, str, i + 1, false, stateOccursMapping))
+		if (pNextState->getIsGroupState())
+		{
+			unordered_map<State *, size_t> newStateOccursMapping;
+			if (validateStringImpl(pNextState, str, i, false, 0, newStateOccursMapping))
+				return true;
+		}
+		else if (validateStringImpl(pNextState, str, i + 1, false, parentOccurs, stateOccursMapping))
 			return true;
 
 		-- stateOccursMapping[pNextState];
@@ -144,7 +193,7 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const std::string 
 	return false;
 }
 
-bool SimpleRegExpEngine::constructDFAImpl(set<State *> prevLevelStates, bool isStartState,
+bool SimpleRegExpEngine::constructDFAImpl(const set<State *> prevLevelStates, bool isStartState, State *pGroup,
 	const std::string &regExp, size_t &i,
 	set<State *> *pNextLevelEndStates, vector<shared_ptr<State>> &states)
 {
@@ -191,17 +240,29 @@ bool SimpleRegExpEngine::constructDFAImpl(set<State *> prevLevelStates, bool isS
 			{
 				set<State*> nextLevelEndStates;
 				++ j;
-				if (!constructDFAImpl(prevStates, false, regExp, j, &nextLevelEndStates, states))
+				//创建Group状态
+				pNewState.reset(new State(pGroup));
+				pNewState->setIsGroupState(true);
+				states.push_back(pNewState);
+				set<State*> tmpPrevStates;
+				tmpPrevStates.insert(pNewState.get());
+				//Group的出现次数在内部处理
+				if (!constructDFAImpl(tmpPrevStates, false, pNewState.get(), regExp, j, &nextLevelEndStates, states))
 					return false;
-				prevStates = nextLevelEndStates;
-				needContinue = true;
+
+				for (auto iter = prevStates.begin(); iter != prevStates.end(); ++ iter)
+					(*iter)->addGroupAction(pNewState.get());
+
+				curChOfState = 0;
 				break;
 			}
 			case ')':
 			{
-				endStates.insert(prevStates.begin(), prevStates.end());
-				if (pNextLevelEndStates)
-					*pNextLevelEndStates = endStates;
+				//Group终结结点
+				prevStates.insert(endStates.begin(), endStates.end());
+				for (auto iter = prevStates.begin(); iter != prevStates.end(); iter ++)
+					(*iter)->setIsFinalState(true);
+				pGroup->setOccurs(occurs);
 				i = j;
 				return true;
 			}
@@ -210,38 +271,42 @@ bool SimpleRegExpEngine::constructDFAImpl(set<State *> prevLevelStates, bool isS
 				continue;
 		}
 
-		if (ch != curChOfState)
+		if (nullptr == pNewState || !pNewState->getIsGroupState())
 		{
-			pNewState.reset(new State());
-			pNewState->setOccurs(occurs);
-			//如果可重复，就添加自身作为下跳状态
-			if (occurs.second > 1)
-				pNewState->addAction(ch, pNewState.get());
-			states.push_back(pNewState);
-		}
-		else
-		{
-			pNewState = pCurState;
-			Occurs oldOccurs = pNewState->getOccurs();
-			oldOccurs.first += occurs.first;
-			oldOccurs.second += oldOccurs.second;
-			pNewState->setOccurs(oldOccurs);
+			if (ch != curChOfState)
+			{
+				pNewState.reset(new State(pGroup));
+				pNewState->setOccurs(occurs);
+				//如果可重复，就添加自身作为下跳状态
+				if (occurs.second > 1)
+					pNewState->addAction(ch, pNewState.get());
+				states.push_back(pNewState);
+			}
+			else
+			{
+				pNewState = pCurState;
+				Occurs oldOccurs = pNewState->getOccurs();
+				oldOccurs.first += occurs.first;
+				oldOccurs.second += oldOccurs.second;
+				pNewState->setOccurs(oldOccurs);
+			}
+
+			for (auto iter = prevStates.begin();
+				iter != prevStates.end();
+				++ iter)
+				(*iter)->addAction(ch, pNewState.get());
+
+			curChOfState = ch;
 		}
 
 		if (j + 1 == regExp.length())
 			pNewState->setIsFinalState(true);
-
-		for (auto iter = prevStates.begin();
-			iter != prevStates.end();
-			++ iter)
-			(*iter)->addAction(ch, pNewState.get());
 
 		if (0 != pNewState->getMinOccurs())
 			prevStates.clear();
 		prevStates.insert(pNewState.get());
 
 		pCurState = pNewState;
-		curChOfState = ch;
 	}
 
 	return true;
@@ -252,6 +317,10 @@ bool SimpleRegExpEngine::parseOccurs(const string &str, size_t &i, Occurs &occur
 	assert(i < str.length());
 	if (i == str.length() - 1)
 		return true;
+	//遇到Group，要延迟到')'再处理
+	if ('(' == str[i])
+		return true;
+
 	switch (str[i + 1])
 	{
 	case '?':
