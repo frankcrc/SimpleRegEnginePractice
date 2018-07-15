@@ -165,11 +165,28 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 			continue;
 		}
 
-		//到达终态
+		bool isLastChar = (i == str.length() - 1);
+		if (!isLastChar)
+		{
+			//贪婪匹配
+			if (pNextState->getIsGroupState())
+			{
+				unordered_map<State *, size_t> newStateOccursMapping;
+				matchStr.pop_back();
+				matchStr += '(';
+				if (validateStringImpl(pNextState, str, i, 0, newStateOccursMapping, matchStr))
+					return true;
+				matchStr.pop_back();
+				matchStr += str[i];
+			}
+			else if (validateStringImpl(pNextState, str, i + 1, parentOccurs, stateOccursMapping, matchStr))
+				return true;
+		}
+		
+		//到这里说明贪婪匹配失败了，检查是否到达终态
 		if (pNextState->isFinalState() && !pNextState->getIsGroupState()
 			&& stateOccursMapping[pNextState] >= pNextState->getMinOccurs())
 		{
-			bool isLastChar = (i == str.length() - 1);
 			if (auto *pParent = pNextState->getParent())
 			{
 				if (!isLastChar)
@@ -189,40 +206,13 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 					matchStr += ')';
 					return true;
 				}
-
-				if (isLastChar)
-				{
-					-- stateOccursMapping[pNextState];
-					continue;
-				}
-				
 			}
 			else if(!m_endInLastChar || isLastChar)
 				//Reg终结结点
 				return true;
 		}
 		
-		//字符串遍历完成，但状态仍未到达终态，则验证失败
-		if (i == str.length() - 1)
-		{
-			-- stateOccursMapping[pNextState];
-			continue;
-		}
-
-		//进入下一状态
-		if (pNextState->getIsGroupState())
-		{
-			unordered_map<State *, size_t> newStateOccursMapping;
-			matchStr.pop_back();
-			matchStr += '(';
-			if (validateStringImpl(pNextState, str, i, 0, newStateOccursMapping, matchStr))
-				return true;
-			matchStr.pop_back();
-			matchStr += str[i];
-		}
-		else if (validateStringImpl(pNextState, str, i + 1, parentOccurs, stateOccursMapping, matchStr))
-			return true;
-
+		//无法通过这一个状态跳转完成匹配
 		-- stateOccursMapping[pNextState];
 	}
 
