@@ -42,6 +42,26 @@ class State
 public:
 	typedef std::unordered_multimap<char, State*> ActionMap;
 
+	using Action = std::pair<char, State*>;
+	using Actions = std::vector<Action>;
+	using ActionIter = Actions::iterator;
+	struct ActionLess
+	{
+		ActionLess(const State *pState)
+			: pThis(pState)
+		{}
+
+		bool operator()(const Action &lhs, const Action &rhs)
+		{
+			if (lhs.first == rhs.first && lhs.second != nullptr && rhs.second != nullptr)
+				return lhs.second == pThis;
+			else
+				return lhs.first < rhs.first;
+		}
+
+		const State *pThis;
+	};
+
 	State(State *pParent);
 
 	~State()
@@ -49,8 +69,7 @@ public:
 
 	void addAction(char ch, State *pNextState);
 	void addGroupAction(State* pGroupState);
-	State* moveNext(char ch);
-	std::pair<ActionMap::iterator, ActionMap::iterator> getNextStates(char ch);
+	std::pair<ActionIter, ActionIter> getNextStates(char ch);
 
 	void setIsFinalState(bool yes) { m_isFinalState = yes; }
 	bool isFinalState() const { return m_isFinalState; }
@@ -66,13 +85,18 @@ public:
 	bool getIsGroupState() const { return m_isGroupState; }
 
 private:
+	void normalizeActions();
+
 	std::string m_id;
 	std::unordered_multimap<char, State*> m_actionsMap;
+	Actions m_actions;
 	//如果不为null，则指向group结点
 	State *m_pParent;
 	bool m_isFinalState;
 	bool m_isGroupState;
+	bool m_isNormalized;
 	Occurs m_occurs;
+	ActionLess m_actionLess;
 };
 
 /*!
@@ -84,7 +108,7 @@ public:
 	/*!
 		构造匹配引擎
 	 */
-	static SimpleRegExpEngine* constructDFA(const std::string& regExp);
+	static SimpleRegExpEngine* constructDFA(const std::string &regExp);
 
 public:
 	~SimpleRegExpEngine();
@@ -92,12 +116,12 @@ public:
 	/*!
 		验证字符串是否匹配
 	 */
-	bool validateString(const std::string& str);
+	bool validateString(const std::string &str, std::string &matchStr);
 
 private:
 	bool validateStringImpl(State *pCurState, const std::string &str, size_t i, bool isFirstState,
 		size_t parentCurOccurs,
-		std::unordered_map<State *, size_t> &stateOccursMappingStack);
+		std::unordered_map<State *, size_t> &stateOccursMappingStack, std::string &matchStr);
 	/*!
 		递归解析，可处理Group
 	 */
@@ -113,7 +137,7 @@ private:
 	/*!
 	获取下一个字符，包含转义处理
 	*/
-	static bool getNextCh(const std::string& str, size_t &i, char &nextChar, bool &escaped);
+	static bool getNextCh(const std::string &str, size_t &i, char &nextChar, bool &escaped);
 
 	SimpleRegExpEngine();
 

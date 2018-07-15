@@ -20,13 +20,17 @@ public:
 	{
 		unique_ptr<SimpleRegExpEngine> spTest(SimpleRegExpEngine::constructDFA(regStr));
 		bool isSucceeded = true;
+		string matchStr;
 		if (expectedResult)
-			isSucceeded = spTest && (spTest->validateString(str) == expectedResult);
+			isSucceeded = spTest && (spTest->validateString(str, matchStr) == expectedResult);
 		else
-			isSucceeded = !spTest || (spTest->validateString(str) == expectedResult);
+			isSucceeded = !spTest || (spTest->validateString(str, matchStr) == expectedResult);
 		cout << "result : " << left << setw(6) << boolalpha << isSucceeded;
 		cout << "expectation : " << setw(6) << expectedResult << noboolalpha << right;
-		cout << "Reg Str : \"" << regStr << "\", str : \"" << str << endl;
+		cout << "Reg Str : \"" << regStr << "\", str : \"" << str;
+		if (isSucceeded && expectedResult)
+			cout << ", Match Str : \"" << matchStr << "\"";
+		cout << endl;
 	}
 };
 
@@ -93,6 +97,11 @@ int main()
 	EngineTest::test("abc(1234|defg){2,2}xsd", "abcdefgdefgxsd", true);
 	EngineTest::test("abc(1234|defg){2,2}xsd", "abc1234defgxsd", true);
 	EngineTest::test("abc(1234|defg){2,2}xsd", "abcdefgdefg1234xsd", false);
+
+	EngineTest::test("abc(1234|defg)*1234", "abc1234", true);
+	EngineTest::test("abc(1234|defg)*1234", "abc1234defg1234", true);
+
+	EngineTest::test("abc(1234|defg)*", "abc1234defg1234", true);
 
 	system("pause");
 

@@ -11,6 +11,8 @@
 #include <string>
 #include <set>
 #include <cassert>
+#include <iterator>
+#include <algorithm>
 
 using namespace std;
 
@@ -18,6 +20,8 @@ State::State(State *pParent)
 	: m_isFinalState(false)
 	, m_pParent(pParent)
 	, m_isGroupState(false)
+	, m_isNormalized(false)
+	, m_actionLess(this)
 {
 	m_occurs.first = 1;
 	m_occurs.second = 1;
@@ -25,27 +29,29 @@ State::State(State *pParent)
 
 void State::addAction(char ch, State *pNextState)
 {
-	m_actionsMap.insert(make_pair(ch, pNextState));
+	m_actions.emplace_back(ch, pNextState);
 }
 
 void State::addGroupAction(State* pGroupState)
 {
-	for (auto iter = pGroupState->m_actionsMap.begin(); iter != pGroupState->m_actionsMap.end(); ++ iter)
-		m_actionsMap.insert(make_pair(iter->first, pGroupState));
+	for (auto iter = pGroupState->m_actions.begin(); iter != pGroupState->m_actions.end(); ++iter)
+		m_actions.emplace_back(iter->first, pGroupState);
 }
 
-State* State::moveNext(char ch)
+pair<State::ActionIter, State::ActionIter> State::getNextStates(char ch)
 {
-	m_actionsMap.find(ch);
-	auto iterState = m_actionsMap.find(ch);
-	if (m_actionsMap.end() == iterState)
-		return nullptr;
-	return iterState->second;
+	if (!m_isNormalized)
+	{
+		normalizeActions();
+		m_isNormalized = true;
+	}
+	Action action = { ch, nullptr };
+	return std::equal_range(m_actions.begin(), m_actions.end(), action, m_actionLess);
 }
 
-pair<State::ActionMap::iterator, State::ActionMap::iterator> State::getNextStates(char ch)
+void State::normalizeActions()
 {
-	return m_actionsMap.equal_range(ch);
+	std::sort(m_actions.begin(), m_actions.end(), m_actionLess);
 }
 
 SimpleRegExpEngine* SimpleRegExpEngine::constructDFA(const string& regExp)
@@ -91,13 +97,17 @@ SimpleRegExpEngine* SimpleRegExpEngine::constructDFA(const string& regExp)
 SimpleRegExpEngine::~SimpleRegExpEngine()
 {}
 
-bool SimpleRegExpEngine::validateString(const string& str)
+bool SimpleRegExpEngine::validateString(const string& str, std::string &matchStr)
 {
 	for (size_t i = 0; i < str.length() && (!m_needCheckFromFirstChar || 0 == i); ++i)
 	{
+		std::string tmp;
 		unordered_map<State *, size_t> stateOccursMappingStack;
-		if (validateStringImpl(m_startState.get(), str, i, true, 1, stateOccursMappingStack))
+		if (validateStringImpl(m_startState.get(), str, i, true, 1, stateOccursMappingStack, tmp))
+		{
+			matchStr = tmp;
 			return true;
+		}
 	}
 
 	return false;
@@ -105,19 +115,27 @@ bool SimpleRegExpEngine::validateString(const string& str)
 
 bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str, size_t i, bool isFirstState,
 	size_t parentOccurs,
-	unordered_map<State *, size_t> &stateOccursMapping)
+	unordered_map<State *, size_t> &stateOccursMapping, std::string &matchStr)
 {
+	matchStr += str[i];
 	if (isFirstState)
 		++ stateOccursMapping[pCurState];
 
 	if (pCurState->getIsGroupState() && parentOccurs > pCurState->getMaxOccurs())
+	{
+		matchStr.pop_back();
 		return false;
+	}
 
-	pair<State::ActionMap::iterator, State::ActionMap::iterator> nextActions = pCurState->getNextStates(str[i]);
+	pair<State::ActionIter, State::ActionIter> nextActions = pCurState->getNextStates(str[i]);
 	//找不到下一个状态
 	if (nextActions.first == nextActions.second)
+	{
+		matchStr.pop_back();
 		return false;
+	}
 
+	bool jumpOutGroup = false;
 	for (; nextActions.first != nextActions.second; ++ nextActions.first)
 	{
 		State *pNextState = nextActions.first->second;
@@ -126,6 +144,13 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 		{
 			if (parentOccurs < pCurState->getMinOccurs() && pNextState->getParent() != pCurState)
 				continue;
+			if (pNextState->getParent() != pCurState)
+			{
+				jumpOutGroup = true;
+				matchStr.pop_back();
+				matchStr += ')';
+				matchStr += str[i];
+			}
 		}
 		else if (stateOccursMapping[pCurState] < pCurState->getMinOccurs()
 			&& pCurState != pNextState)
@@ -161,7 +186,7 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 				//从Group开始下一轮匹配
 				{
 					unordered_map<State *, size_t> newStateOccursMapping;
-					if (validateStringImpl(pParent, str, i + 1, false, parentOccurs + 1, newStateOccursMapping))
+					if (validateStringImpl(pParent, str, i + 1, false, parentOccurs + 1, newStateOccursMapping, matchStr))
 						return true;
 				}
 			}
@@ -181,15 +206,26 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 		if (pNextState->getIsGroupState())
 		{
 			unordered_map<State *, size_t> newStateOccursMapping;
-			if (validateStringImpl(pNextState, str, i, false, 0, newStateOccursMapping))
+			matchStr.pop_back();
+			matchStr += '(';
+			if (validateStringImpl(pNextState, str, i, false, 0, newStateOccursMapping, matchStr))
 				return true;
+			matchStr.pop_back();
+			matchStr += str[i];
 		}
-		else if (validateStringImpl(pNextState, str, i + 1, false, parentOccurs, stateOccursMapping))
+		else if (validateStringImpl(pNextState, str, i + 1, false, parentOccurs, stateOccursMapping, matchStr))
 			return true;
 
 		-- stateOccursMapping[pNextState];
 	}
 
+	if (jumpOutGroup)
+	{
+		matchStr.pop_back();
+		matchStr.pop_back();
+		matchStr += str[i];
+	}
+	matchStr.pop_back();
 	return false;
 }
 
