@@ -103,7 +103,7 @@ bool SimpleRegExpEngine::validateString(const string& str, std::string &matchStr
 	{
 		std::string tmp;
 		unordered_map<State *, size_t> stateOccursMappingStack;
-		if (validateStringImpl(m_startState.get(), str, i, true, 1, stateOccursMappingStack, tmp))
+		if (validateStringImpl(m_startState.get(), str, i, 1, stateOccursMappingStack, tmp))
 		{
 			matchStr = tmp;
 			return true;
@@ -113,13 +113,11 @@ bool SimpleRegExpEngine::validateString(const string& str, std::string &matchStr
 	return false;
 }
 
-bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str, size_t i, bool isFirstState,
+bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str, size_t i,
 	size_t parentOccurs,
 	unordered_map<State *, size_t> &stateOccursMapping, std::string &matchStr)
 {
 	matchStr += str[i];
-	if (isFirstState)
-		++ stateOccursMapping[pCurState];
 
 	if (pCurState->getIsGroupState() && parentOccurs > pCurState->getMaxOccurs())
 	{
@@ -152,10 +150,12 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 				matchStr += str[i];
 			}
 		}
-		else if (stateOccursMapping[pCurState] < pCurState->getMinOccurs()
+		else if (pCurState != m_startState.get()
+			&& stateOccursMapping[pCurState] < pCurState->getMinOccurs()
 			&& pCurState != pNextState)
 			continue;
 
+		//对于当pNextState为Group的情况，这个Occurs没有意义，Group的Occurs会由parentOccurs参数表示
 		++ stateOccursMapping[pNextState];
 
 		//超过最大次数
@@ -166,31 +166,38 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 		}
 
 		//到达终态
-		if (pNextState->isFinalState()
+		if (pNextState->isFinalState() && !pNextState->getIsGroupState()
 			&& stateOccursMapping[pNextState] >= pNextState->getMinOccurs())
 		{
+			bool isLastChar = (i == str.length() - 1);
 			if (auto *pParent = pNextState->getParent())
 			{
-				//Group终结结点
+				if (!isLastChar)
+				{
+					//从Group开始下一轮匹配
+					unordered_map<State *, size_t> newStateOccursMapping;
+					if (validateStringImpl(pParent, str, i + 1, parentOccurs + 1, newStateOccursMapping, matchStr))
+						return true;
+				}
+
+				//i == str.length() - 1或者匹配Group失败
+				//Group结点是终结结点
 				if (pParent->isFinalState()
 					&& parentOccurs >= pParent->getMinOccurs()
-					&& (!m_endInLastChar || i == str.length() - 1))
+					&& (!m_endInLastChar || isLastChar))
+				{
+					matchStr += ')';
 					return true;
+				}
 
-				if (i == str.length() - 1)
+				if (isLastChar)
 				{
 					-- stateOccursMapping[pNextState];
 					continue;
 				}
-
-				//从Group开始下一轮匹配
-				{
-					unordered_map<State *, size_t> newStateOccursMapping;
-					if (validateStringImpl(pParent, str, i + 1, false, parentOccurs + 1, newStateOccursMapping, matchStr))
-						return true;
-				}
+				
 			}
-			else if(!m_endInLastChar || i == str.length() - 1)
+			else if(!m_endInLastChar || isLastChar)
 				//Reg终结结点
 				return true;
 		}
@@ -208,12 +215,12 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 			unordered_map<State *, size_t> newStateOccursMapping;
 			matchStr.pop_back();
 			matchStr += '(';
-			if (validateStringImpl(pNextState, str, i, false, 0, newStateOccursMapping, matchStr))
+			if (validateStringImpl(pNextState, str, i, 0, newStateOccursMapping, matchStr))
 				return true;
 			matchStr.pop_back();
 			matchStr += str[i];
 		}
-		else if (validateStringImpl(pNextState, str, i + 1, false, parentOccurs, stateOccursMapping, matchStr))
+		else if (validateStringImpl(pNextState, str, i + 1, parentOccurs, stateOccursMapping, matchStr))
 			return true;
 
 		-- stateOccursMapping[pNextState];
@@ -439,3 +446,28 @@ SimpleRegExpEngine::SimpleRegExpEngine()
 	: m_needCheckFromFirstChar(false)
 	, m_endInLastChar(false)
 {}
+
+State::ActionLess::ActionLess(const State *pState)
+	: pThis(pState)
+{}
+
+bool State::ActionLess::operator()(const Action &lhs, const Action &rhs)
+{
+	if (lhs.first == rhs.first && lhs.second != nullptr && rhs.second != nullptr)
+	{
+		if (!pThis->getIsGroupState())
+			//非Group状态不会有多个具有相同跳转字符，且跳转到自身的状态
+			//跳转到自身的动作优先
+			return lhs.second == pThis;
+		else
+		{
+			if (lhs.second->getParent() != lhs.second->getParent())
+				//跳转到Group中状态的结点优先
+				return lhs.second->getParent() == pThis;
+			else
+				return lhs.first < rhs.first;
+		}
+	}
+	else
+		return lhs.first < rhs.first;
+}

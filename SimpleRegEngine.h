@@ -47,17 +47,8 @@ public:
 	using ActionIter = Actions::iterator;
 	struct ActionLess
 	{
-		ActionLess(const State *pState)
-			: pThis(pState)
-		{}
-
-		bool operator()(const Action &lhs, const Action &rhs)
-		{
-			if (lhs.first == rhs.first && lhs.second != nullptr && rhs.second != nullptr)
-				return lhs.second == pThis;
-			else
-				return lhs.first < rhs.first;
-		}
+		ActionLess(const State *pState);
+		bool operator()(const Action &lhs, const Action &rhs);
 
 		const State *pThis;
 	};
@@ -119,8 +110,7 @@ public:
 	bool validateString(const std::string &str, std::string &matchStr);
 
 private:
-	bool validateStringImpl(State *pCurState, const std::string &str, size_t i, bool isFirstState,
-		size_t parentCurOccurs,
+	bool validateStringImpl(State *pCurState, const std::string &str, size_t i, size_t parentCurOccurs,
 		std::unordered_map<State *, size_t> &stateOccursMappingStack, std::string &matchStr);
 	/*!
 		递归解析，可处理Group

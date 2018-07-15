@@ -103,6 +103,8 @@ int main()
 
 	EngineTest::test("abc(1234|defg)*", "abc1234defg1234", true);
 
+	EngineTest::test("abc*", "abccccccca", true);
+
 	system("pause");
 
 	return 0;
