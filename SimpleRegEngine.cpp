@@ -1,4 +1,4 @@
-/*!
+ï»¿/*!
  * \file SimpleRegEngine.cpp
  *
  * \author frank
@@ -126,7 +126,7 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 	}
 
 	pair<State::ActionIter, State::ActionIter> nextActions = pCurState->getNextStates(str[i]);
-	//ÕÒ²»µ½ÏÂÒ»¸ö×´Ì¬
+	//æ‰¾ä¸åˆ°ä¸‹ä¸€ä¸ªçŠ¶æ€
 	if (nextActions.first == nextActions.second)
 	{
 		matchStr.pop_back();
@@ -137,7 +137,7 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 	for (; nextActions.first != nextActions.second; ++ nextActions.first)
 	{
 		State *pNextState = nextActions.first->second;
-		//Î´´ïµ½×îĞ¡´ÎÊı
+		//æœªè¾¾åˆ°æœ€å°æ¬¡æ•°
 		if (pCurState->getIsGroupState())
 		{
 			if (parentOccurs < pCurState->getMinOccurs() && pNextState->getParent() != pCurState)
@@ -155,10 +155,10 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 			&& pCurState != pNextState)
 			continue;
 
-		//¶ÔÓÚµ±pNextStateÎªGroupµÄÇé¿ö£¬Õâ¸öOccursÃ»ÓĞÒâÒå£¬GroupµÄOccurs»áÓÉparentOccurs²ÎÊı±íÊ¾
+		//å¯¹äºå½“pNextStateä¸ºGroupçš„æƒ…å†µï¼Œè¿™ä¸ªOccursæ²¡æœ‰æ„ä¹‰ï¼ŒGroupçš„Occursä¼šç”±parentOccurså‚æ•°è¡¨ç¤º
 		++ stateOccursMapping[pNextState];
 
-		//³¬¹ı×î´ó´ÎÊı
+		//è¶…è¿‡æœ€å¤§æ¬¡æ•°
 		if (stateOccursMapping[pNextState] > pNextState->getMaxOccurs())
 		{
 			-- stateOccursMapping[pNextState];
@@ -168,7 +168,7 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 		bool isLastChar = (i == str.length() - 1);
 		if (!isLastChar)
 		{
-			//Ì°À·Æ¥Åä
+			//è´ªå©ªåŒ¹é…
 			if (pNextState->getIsGroupState())
 			{
 				unordered_map<State *, size_t> newStateOccursMapping;
@@ -183,7 +183,7 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 				return true;
 		}
 		
-		//µ½ÕâÀïËµÃ÷Ì°À·Æ¥ÅäÊ§°ÜÁË£¬¼ì²éÊÇ·ñµ½´ïÖÕÌ¬
+		//åˆ°è¿™é‡Œè¯´æ˜è´ªå©ªåŒ¹é…å¤±è´¥äº†ï¼Œæ£€æŸ¥æ˜¯å¦åˆ°è¾¾ç»ˆæ€
 		if (pNextState->isFinalState() && !pNextState->getIsGroupState()
 			&& stateOccursMapping[pNextState] >= pNextState->getMinOccurs())
 		{
@@ -191,14 +191,14 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 			{
 				if (!isLastChar)
 				{
-					//´ÓGroup¿ªÊ¼ÏÂÒ»ÂÖÆ¥Åä
+					//ä»Groupå¼€å§‹ä¸‹ä¸€è½®åŒ¹é…
 					unordered_map<State *, size_t> newStateOccursMapping;
 					if (validateStringImpl(pParent, str, i + 1, parentOccurs + 1, newStateOccursMapping, matchStr))
 						return true;
 				}
 
-				//i == str.length() - 1»òÕßÆ¥ÅäGroupÊ§°Ü
-				//Group½áµãÊÇÖÕ½á½áµã
+				//i == str.length() - 1æˆ–è€…åŒ¹é…Groupå¤±è´¥
+				//Groupç»“ç‚¹æ˜¯ç»ˆç»“ç»“ç‚¹
 				if (pParent->isFinalState()
 					&& parentOccurs >= pParent->getMinOccurs()
 					&& (!m_endInLastChar || isLastChar))
@@ -208,11 +208,11 @@ bool SimpleRegExpEngine::validateStringImpl(State *pCurState, const string &str,
 				}
 			}
 			else if(!m_endInLastChar || isLastChar)
-				//RegÖÕ½á½áµã
+				//Regç»ˆç»“ç»“ç‚¹
 				return true;
 		}
 		
-		//ÎŞ·¨Í¨¹ıÕâÒ»¸ö×´Ì¬Ìø×ªÍê³ÉÆ¥Åä
+		//æ— æ³•é€šè¿‡è¿™ä¸€ä¸ªçŠ¶æ€è·³è½¬å®ŒæˆåŒ¹é…
 		-- stateOccursMapping[pNextState];
 	}
 
@@ -273,13 +273,13 @@ bool SimpleRegExpEngine::constructDFAImpl(const set<State *> prevLevelStates, bo
 			{
 				set<State*> nextLevelEndStates;
 				++ j;
-				//´´½¨Group×´Ì¬
+				//åˆ›å»ºGroupçŠ¶æ€
 				pNewState.reset(new State(pGroup));
 				pNewState->setIsGroupState(true);
 				states.push_back(pNewState);
 				set<State*> tmpPrevStates;
 				tmpPrevStates.insert(pNewState.get());
-				//GroupµÄ³öÏÖ´ÎÊıÔÚÄÚ²¿´¦Àí
+				//Groupçš„å‡ºç°æ¬¡æ•°åœ¨å†…éƒ¨å¤„ç†
 				if (!constructDFAImpl(tmpPrevStates, false, pNewState.get(), regExp, j, &nextLevelEndStates, states))
 					return false;
 
@@ -291,7 +291,7 @@ bool SimpleRegExpEngine::constructDFAImpl(const set<State *> prevLevelStates, bo
 			}
 			case ')':
 			{
-				//GroupÖÕ½á½áµã
+				//Groupç»ˆç»“ç»“ç‚¹
 				prevStates.insert(endStates.begin(), endStates.end());
 				for (auto iter = prevStates.begin(); iter != prevStates.end(); iter ++)
 					(*iter)->setIsFinalState(true);
@@ -310,7 +310,7 @@ bool SimpleRegExpEngine::constructDFAImpl(const set<State *> prevLevelStates, bo
 			{
 				pNewState.reset(new State(pGroup));
 				pNewState->setOccurs(occurs);
-				//Èç¹û¿ÉÖØ¸´£¬¾ÍÌí¼Ó×ÔÉí×÷ÎªÏÂÌø×´Ì¬
+				//å¦‚æœå¯é‡å¤ï¼Œå°±æ·»åŠ è‡ªèº«ä½œä¸ºä¸‹è·³çŠ¶æ€
 				if (occurs.second > 1)
 					pNewState->addAction(ch, pNewState.get());
 				states.push_back(pNewState);
@@ -350,7 +350,7 @@ bool SimpleRegExpEngine::parseOccurs(const string &str, size_t &i, Occurs &occur
 	assert(i < str.length());
 	if (i == str.length() - 1)
 		return true;
-	//Óöµ½Group£¬ÒªÑÓ³Ùµ½')'ÔÙ´¦Àí
+	//é‡åˆ°Groupï¼Œè¦å»¶è¿Ÿåˆ°')'å†å¤„ç†
 	if ('(' == str[i])
 		return true;
 
@@ -389,7 +389,7 @@ bool SimpleRegExpEngine::parseOccurs(const string &str, size_t &i, Occurs &occur
 			}
 			else if (str[j] == ',')
 			{
-				//Ã»ÓĞ×îĞ¡´ÎÊı£¬»òÕß³öÏÖ¶à´Î','
+				//æ²¡æœ‰æœ€å°æ¬¡æ•°ï¼Œæˆ–è€…å‡ºç°å¤šæ¬¡','
 				if (!isParsingOccurs || !firstNumber)
 					return false;
 				firstNumber = false;
@@ -400,7 +400,7 @@ bool SimpleRegExpEngine::parseOccurs(const string &str, size_t &i, Occurs &occur
 				if (isParsingOccurs && minOccurs > maxOccurs)
 					return false;
 				occurs.first = minOccurs;
-				//Èç¹ûÃ»ÓĞµÚ¶ş¸öÊı×Ö£¬Ôò±íÊ¾ÎŞÏŞÖØ¸´
+				//å¦‚æœæ²¡æœ‰ç¬¬äºŒä¸ªæ•°å­—ï¼Œåˆ™è¡¨ç¤ºæ— é™é‡å¤
 				occurs.second = isParsingOccurs ? maxOccurs : numeric_limits<size_t>::max();
 				i = j;
 				break;
@@ -421,7 +421,7 @@ bool SimpleRegExpEngine::getNextCh(const string& str, size_t &i, char &nextChar,
 	case '\\':
 		escaped = true;
 		++ i;
-		//ÔİÊ±²»ÅĞ¶Ï×ªÒåÊÇ·ñÓĞĞ§
+		//æš‚æ—¶ä¸åˆ¤æ–­è½¬ä¹‰æ˜¯å¦æœ‰æ•ˆ
 		nextChar = str[i];
 		if (false)
 			return false;
@@ -446,13 +446,13 @@ bool State::ActionLess::operator()(const Action &lhs, const Action &rhs)
 	if (lhs.first == rhs.first && lhs.second != nullptr && rhs.second != nullptr)
 	{
 		if (!pThis->getIsGroupState())
-			//·ÇGroup×´Ì¬²»»áÓĞ¶à¸ö¾ßÓĞÏàÍ¬Ìø×ª×Ö·û£¬ÇÒÌø×ªµ½×ÔÉíµÄ×´Ì¬
-			//Ìø×ªµ½×ÔÉíµÄ¶¯×÷ÓÅÏÈ
+			//éGroupçŠ¶æ€ä¸ä¼šæœ‰å¤šä¸ªå…·æœ‰ç›¸åŒè·³è½¬å­—ç¬¦ï¼Œä¸”è·³è½¬åˆ°è‡ªèº«çš„çŠ¶æ€
+			//è·³è½¬åˆ°è‡ªèº«çš„åŠ¨ä½œä¼˜å…ˆ
 			return lhs.second == pThis;
 		else
 		{
 			if (lhs.second->getParent() != lhs.second->getParent())
-				//Ìø×ªµ½GroupÖĞ×´Ì¬µÄ½áµãÓÅÏÈ
+				//è·³è½¬åˆ°Groupä¸­çŠ¶æ€çš„ç»“ç‚¹ä¼˜å…ˆ
 				return lhs.second->getParent() == pThis;
 			else
 				return lhs.first < rhs.first;

@@ -1,4 +1,4 @@
-/*!
+ï»¿/*!
  * \file SimpleRegEngine.h
  *
  * \author frank
@@ -15,27 +15,27 @@
 #include <memory>
 #include <string>
 
-//ÔİÊ±ÏÈĞ´ÕâÀï£¬ºóÃæÔÙÒÆµ½ÎÄ¼şÀï
+//æš‚æ—¶å…ˆå†™è¿™é‡Œï¼Œåé¢å†ç§»åˆ°æ–‡ä»¶é‡Œ
 /*!
 * \class State
 *
-* \brief ×´Ì¬Àà
+* \brief çŠ¶æ€ç±»
 *
 * \author frank
-* \date ÎåÔÂ 2018
+* \date äº”æœˆ 2018
 */
 
 /*!
-	\typedef ×´Ì¬¿É³öÏÖ´ÎÊı
+	\typedef çŠ¶æ€å¯å‡ºç°æ¬¡æ•°
 
-	first	×îĞ¡³öÏÖ´ÎÊı
-	second	×î´ó³öÏÖ´ÎÊı
-	-1±íÊ¾ÎŞÏŞ´Î
+	first	æœ€å°å‡ºç°æ¬¡æ•°
+	second	æœ€å¤§å‡ºç°æ¬¡æ•°
+	-1è¡¨ç¤ºæ— é™æ¬¡
 */
 using Occurs = std::pair<size_t, size_t>;
 
 /*!
-	\class ×´Ì¬Àà
+	\class çŠ¶æ€ç±»
  */
 class State
 {
@@ -81,7 +81,7 @@ private:
 	std::string m_id;
 	std::unordered_multimap<char, State*> m_actionsMap;
 	Actions m_actions;
-	//Èç¹û²»Îªnull£¬ÔòÖ¸Ïògroup½áµã
+	//å¦‚æœä¸ä¸ºnullï¼Œåˆ™æŒ‡å‘groupç»“ç‚¹
 	State *m_pParent;
 	bool m_isFinalState;
 	bool m_isGroupState;
@@ -91,13 +91,13 @@ private:
 };
 
 /*!
-\class ¼òµ¥ÕıÔò±í´ïÊ½ÒıÇæ
+\class ç®€å•æ­£åˆ™è¡¨è¾¾å¼å¼•æ“
 */
 class SimpleRegExpEngine
 {
 public:
 	/*!
-		¹¹ÔìÆ¥ÅäÒıÇæ
+		æ„é€ åŒ¹é…å¼•æ“
 	 */
 	static SimpleRegExpEngine* constructDFA(const std::string &regExp);
 
@@ -105,7 +105,7 @@ public:
 	~SimpleRegExpEngine();
 
 	/*!
-		ÑéÖ¤×Ö·û´®ÊÇ·ñÆ¥Åä
+		éªŒè¯å­—ç¬¦ä¸²æ˜¯å¦åŒ¹é…
 	 */
 	bool validateString(const std::string &str, std::string &matchStr);
 
@@ -113,19 +113,19 @@ private:
 	bool validateStringImpl(State *pCurState, const std::string &str, size_t i, size_t parentCurOccurs,
 		std::unordered_map<State *, size_t> &stateOccursMappingStack, std::string &matchStr);
 	/*!
-		µİ¹é½âÎö£¬¿É´¦ÀíGroup
+		é€’å½’è§£æï¼Œå¯å¤„ç†Group
 	 */
 	static bool constructDFAImpl(const std::set<State *> prevLevelStates, bool isStateState, State *pGroup,
 		const std::string &regExp, size_t &i,
 		std::set<State *> *pNextLevelEndStates, std::vector<std::shared_ptr<State>> &states);
 	/*!
-	½âÎö×î´ó×îĞ¡´ÎÊı
+	è§£ææœ€å¤§æœ€å°æ¬¡æ•°
 
-	\return	±íÊ¾ÊÇ·ñ½âÎö³É¹¦
+	\return	è¡¨ç¤ºæ˜¯å¦è§£ææˆåŠŸ
 	*/
 	static bool parseOccurs(const std::string &str, size_t &i, Occurs &occurs);
 	/*!
-	»ñÈ¡ÏÂÒ»¸ö×Ö·û£¬°üº¬×ªÒå´¦Àí
+	è·å–ä¸‹ä¸€ä¸ªå­—ç¬¦ï¼ŒåŒ…å«è½¬ä¹‰å¤„ç†
 	*/
 	static bool getNextCh(const std::string &str, size_t &i, char &nextChar, bool &escaped);
 
